@@ -13,6 +13,7 @@ import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.AppCompatTextView
@@ -32,7 +33,7 @@ import com.lorenzofelletti.permissions.dispatcher.dsl.*
 
 class MainActivity : AppCompatActivity(), AdapterOnClick {
     private lateinit var binding: ActivityMainBinding
-
+    lateinit var bluetoothAdapter: BluetoothAdapter
     private lateinit var permissionManager: PermissionManager
     private lateinit var btManager: BluetoothManager
     private lateinit var bleScanManager: BleScanManager
@@ -124,6 +125,17 @@ class MainActivity : AppCompatActivity(), AdapterOnClick {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+        bluetoothAdapter = bluetoothManager.adapter
+        if (!bluetoothAdapter.isEnabled) {
+            enableBluetooth()
+            return;
+        }
+        initUI()
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun initUI() {
         pemissionInit()
         foundDevices = BleDevice.createBleDevicesList()
         val adapter = BleDeviceAdapter(this, foundDevices, this)
@@ -267,5 +279,23 @@ class MainActivity : AppCompatActivity(), AdapterOnClick {
         val intent = Intent(this, ConnectActivity::class.java)
 //        intent.putExtra("device", item)
         startActivity(intent)
+    }
+
+    private val enableBluetoothResultLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+            Toast.makeText(this, "Bluetooth Enabled!", Toast.LENGTH_SHORT).show()
+            initUI()
+        } else {
+            Toast.makeText(this, "Bluetooth is required for this app to run", Toast.LENGTH_SHORT)
+                .show()
+            this.finish()
+        }
+    }
+
+    private fun enableBluetooth() {
+        val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
+        enableBluetoothResultLauncher.launch(enableBtIntent)
     }
 }
