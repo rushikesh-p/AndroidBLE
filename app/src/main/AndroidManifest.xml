@@ -44,6 +44,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".ConnectActivity"
+            android:theme="@style/Theme.AppCompat.NoActionBar"
+            android:exported="true">
+        </activity>
     </application>
 
 </manifest>
