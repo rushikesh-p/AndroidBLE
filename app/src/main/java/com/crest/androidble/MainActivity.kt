@@ -10,6 +10,8 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.View
 import android.widget.Toast
@@ -38,6 +40,21 @@ class MainActivity : AppCompatActivity(), AdapterOnClick {
     private lateinit var btManager: BluetoothManager
     private lateinit var bleScanManager: BleScanManager
     private lateinit var foundDevices: MutableList<BleDevice>
+    lateinit var mainHandler: Handler
+    private val readDevicesList = object : Runnable {
+        override fun run() {
+            getBLEDevices()
+            mainHandler.postDelayed(this, 15000)
+        }
+    }
+    companion object {
+        private val TAG = MainActivity::class.java.simpleName
+        private const val BLE_PERMISSION_REQUEST_CODE = 1
+        var bleDevice: BleDevice? = null;
+        var bluetoothGatt: BluetoothGatt? = null
+        var flag: String? = "Not Connected"
+    }
+
     private val mReceiver = object : BroadcastReceiver() {
         @SuppressLint("MissingPermission")
         override fun onReceive(context: Context, intent: Intent) {
@@ -54,7 +71,7 @@ class MainActivity : AppCompatActivity(), AdapterOnClick {
                     }
                 }
                 BluetoothAdapter.ACTION_DISCOVERY_FINISHED -> {
-//                    Log.d("MainActivity", "ACTION_DISCOVERY_FINISHED")
+                    Log.d("MainActivity", "ACTION_DISCOVERY_FINISHED")
 //                    viewModel.scanningFinished()
 //                    //if there are no device show proper message
 //                    if (viewModel.discoveredDevices.isEmpty()) {
@@ -102,28 +119,12 @@ class MainActivity : AppCompatActivity(), AdapterOnClick {
         }
     }
 
-    private fun visibleListingView() {
-        runOnUiThread {
-            Log.i(TAG, "Disconnected from GATT server.")
-            binding.clLoader.visibility = View.GONE;
-            binding.rvFoundDevices.visibility = View.VISIBLE;
-            binding.lblTitle.visibility = View.VISIBLE;
-            binding.clConnect.visibility = View.GONE
-            binding.clListing.visibility = View.VISIBLE
-            permissionManager checkRequestAndDispatch BLE_PERMISSION_REQUEST_CODE
-            Toast.makeText(
-                this@MainActivity,
-                flag, Toast.LENGTH_SHORT
-            ).show()
-        }
-    }
-
-
     @SuppressLint("MissingInflatedId", "MissingPermission")
     @RequiresApi(Build.VERSION_CODES.S)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
+        mainHandler = Handler(Looper.getMainLooper())
         setContentView(binding.root)
         val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
         bluetoothAdapter = bluetoothManager.adapter
@@ -144,7 +145,7 @@ class MainActivity : AppCompatActivity(), AdapterOnClick {
         btManager = getSystemService(BluetoothManager::class.java)
         bleScanManager = BleScanManager(btManager, 5000, scanCallback = BleScanCallback({
             val rssi = it?.rssi
-            Log.d(TAG, "" + it?.device?.address)
+            Log.d(TAG, "initUI => " + it?.device?.address)
             val name = it?.device?.address
             if (name.isNullOrBlank()) return@BleScanCallback
             val device = BleDevice(name, rssi, it.device)
@@ -160,7 +161,8 @@ class MainActivity : AppCompatActivity(), AdapterOnClick {
                 adapter.notifyItemRangeRemoved(0, it)
             }
         }
-        permissionManager checkRequestAndDispatch BLE_PERMISSION_REQUEST_CODE
+//        mainHandler.post(readDevicesList)
+        getBLEDevices();
         binding.btnDisconnect.setOnClickListener {
             flag = "Disconnected";
             bluetoothGatt!!.disconnect()
@@ -172,6 +174,26 @@ class MainActivity : AppCompatActivity(), AdapterOnClick {
 //        }
         bindDataAfterConnect()
 //        initRegisterReceiver()
+    }
+
+    private fun getBLEDevices() {
+        permissionManager checkRequestAndDispatch BLE_PERMISSION_REQUEST_CODE
+    }
+
+    private fun visibleListingView() {
+        runOnUiThread {
+            Log.i(TAG, "Disconnected from GATT server.")
+            binding.clLoader.visibility = View.GONE;
+            binding.rvFoundDevices.visibility = View.VISIBLE;
+            binding.lblTitle.visibility = View.VISIBLE;
+            binding.clConnect.visibility = View.GONE
+            binding.clListing.visibility = View.VISIBLE
+            permissionManager checkRequestAndDispatch BLE_PERMISSION_REQUEST_CODE
+            Toast.makeText(
+                this@MainActivity,
+                flag, Toast.LENGTH_SHORT
+            ).show()
+        }
     }
 
     @SuppressLint("MissingPermission", "NewApi")
@@ -250,13 +272,6 @@ class MainActivity : AppCompatActivity(), AdapterOnClick {
         }
     }
 
-    companion object {
-        private val TAG = MainActivity::class.java.simpleName
-        private const val BLE_PERMISSION_REQUEST_CODE = 1
-        var bleDevice: BleDevice? = null;
-        var bluetoothGatt: BluetoothGatt? = null
-        var flag: String? = "Not Connected"
-    }
 
     @SuppressLint("MissingPermission", "NewApi", "SetTextI18n")
     override fun onClick(item: BleDevice) {
@@ -273,12 +288,6 @@ class MainActivity : AppCompatActivity(), AdapterOnClick {
         }
         binding.lblDevice.text = "Connecting to $deviceName.";
         bluetoothGatt = item.device?.connectGatt(this, false, bluetoothGattCallback)
-    }
-
-    private fun redirectToConnectScreen() {
-        val intent = Intent(this, ConnectActivity::class.java)
-//        intent.putExtra("device", item)
-        startActivity(intent)
     }
 
     private val enableBluetoothResultLauncher = registerForActivityResult(
@@ -298,4 +307,35 @@ class MainActivity : AppCompatActivity(), AdapterOnClick {
         val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
         enableBluetoothResultLauncher.launch(enableBtIntent)
     }
+
+
+    override fun onResume() {
+        super.onResume()
+//        if (mainHandler != null)
+//            mainHandler.post(readDevicesList)
+        if (permissionManager != null)
+            permissionManager checkRequestAndDispatch BLE_PERMISSION_REQUEST_CODE
+    }
+
+    override fun onPause() {
+        super.onPause()
+//        if (mainHandler != null)
+//            mainHandler.removeCallbacks(readDevicesList)
+    }
+
+    @SuppressLint("MissingPermission")
+    override fun onDestroy() {
+        super.onDestroy()
+
+        // Make sure we're not doing discovery anymore
+        if (bluetoothAdapter.isDiscovering) {
+            bluetoothAdapter.cancelDiscovery()
+        }
+
+        // Unregister broadcast listeners
+        this.unregisterReceiver(mReceiver)
+        if (bluetoothGatt != null)
+            bluetoothGatt?.disconnect();
+    }
+
 }

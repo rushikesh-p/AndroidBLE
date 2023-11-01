@@ -15,6 +15,7 @@
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
+        android:layout_margin="5dp"
         android:layout_height="wrap_content">
 
         <androidx.appcompat.widget.AppCompatTextView
@@ -24,6 +25,9 @@
             android:layout_marginHorizontal="10dp"
             android:layout_marginTop="5dp"
             android:layout_weight="1"
+            android:text="54:09:45:65:67:85"
+            android:textSize="18dp"
+            android:textStyle="bold"
             android:textColor="@color/black"
             app:layout_constraintBottom_toTopOf="@id/lbl_rssi"
             app:layout_constraintEnd_toEndOf="parent"
@@ -37,6 +41,8 @@
             android:layout_marginHorizontal="10dp"
             android:layout_marginVertical="5dp"
             android:layout_weight="1"
+            android:text="54:09:45:65:67:85"
+            android:textSize="16dp"
             android:textColor="@color/black"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"
